@@ -26,7 +26,7 @@ class TestDataTransfer(unittest.TestCase):
         self.dt.transfer_files(targets=targets, remote_path=REMOTE_PATH)
         test_success = True
         print("finished transfer_files method test.")
-        assertTrue(test_success)
+        self.assertTrue(test_success)
 
 
 if __name__ == '__main__':

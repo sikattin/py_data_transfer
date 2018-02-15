@@ -71,6 +71,9 @@ class DataTransfer(object):
         self.ymd = datetime.now().strftime("%Y") + \
                    datetime.now().strftime("%m") + \
                    datetime.now().strftime("%d")
+        # log file path.
+        self.log_file = r"{0}/{1}_backup.log".format(self.log_root, self.ymd)
+        self.errlog_file = r"{0}/{1}_error.log".format(self.errlog_root, self.ymd)
 
     def get_transfer_files(self):
         """obtain transfer files path."""
@@ -103,6 +106,7 @@ class DataTransfer(object):
                 type: str
         """
         print("Start transfering process.")
+        self._write_log(logpath=self.log_file, line="Start transfering process.")
         try:
             with SSHConn(hostname=self.ssh_host,
                          username=self.ssh_user,
@@ -120,32 +124,32 @@ class DataTransfer(object):
                     except:
                         print("Error: failed to transfer files/dir to remote host.")
                         print("failed to transfer the target file. writing error log in {}".format(self.errlog_root))
-                        with open(r"{0}/{1}_error.log".format(self.errlog_root, self.ymd), 'a') as f:
-                            f.write("{} was not transfer to remote host.".format(target))
+                        line = "{} was not transfer to remote host.".format(target)
+                        self._write_log(logpath=self.errlog_file, line=line)
                         continue
                     else:
-                        line = "succeeded to transfer data from local: {0} to remote: {1}".format(target, remote_path)
+                        line = "the data transferd from local: {0} to remote: {1}".format(target, remote_path)
                         print(line)
-                        with open(r"{0}/{1}_backup.log".format(self.log_root, self.ymd), 'a') as f:
-                            f.write(line)
+                        self._write_log(logpath=self.log_file, line=line)
+
         except BadHostKeyException as badhoste:
             line = "SSH connection failed." \
                    "The host key given by the SSH server did not match what we were expecting"
-            with open(r"{0}/{1}_error.log".format(self.errlog_root, self.ymd), 'a') as f:
-                f.write(line)
+            self._write_log(logpath=self.errlog_file, line=line)
             raise badhoste
         except AuthenticationException as authe:
             line = "SSH authentication failed. retry with diffrent credentials."
-            with open(r"{0}/{1}_error.log".format(self.errlog_root, self.ymd), 'a') as f:
-                f.write(line)
+            self._write_log(logpath=self.errlog_file, line=line)
             raise authe
         except SSHException as sshe:
             line = "SSH connection failed. reason occured exception is unknwon."
-            with open(r"{0}/{1}_error.log".format(self.errlog_root, self.ymd), 'a') as f:
-                f.write(line)
+            self._write_log(logpath=self.errlog_file, line=line)
             raise sshe
         except error as sockete:
             line = "SSH connection was timeout."
-            with open(r"{0}/{1}_error.log".format(self.errlog_root, self.ymd), 'a') as f:
-                f.write(line)
+            self._write_log(logpath=self.errlog_file, line=line)
             raise sockete
+
+    def _write_log(self, logpath: str, line: str):
+        with open(logpath, mode='a') as file:
+            file.write(line + "\n")
