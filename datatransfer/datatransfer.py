@@ -8,6 +8,7 @@
 # Copyright:   (c) shikano.takeki 2018
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
+# -*- coding: utf-8 -*-
 from osfile import fileope
 from mylogger.logger import Logger
 from connection.sshconn import SSHConn
@@ -24,6 +25,7 @@ class DataTransfer(object):
                  password=None,
                  logpath=".",
                  errlog_path=".",
+                 logger=None,
                  loglevel=None):
         """constructor
 
@@ -44,16 +46,17 @@ class DataTransfer(object):
                 type: str
             param6 errlog_path: error log file path. default is current.
                 type: str
+            param7 logger: logger instance.
+            param8 loglevel: log level.
 
         """
         from datetime import datetime
         if keyfile_path is None and password is None:
             raise TypeError("keyfile_path or password arg is necessary.")
         # ロガーのセットアップ.
-        if loglevel is None:
-            loglevel = 30
-        Logger.loglevel = loglevel
-        self._logger = Logger(str(self))
+        self._logger = logger
+        if self._logger is not None and loglevel in {10, 20, 30, 40, 50}:
+            self._logger.set_loglevel(loglevel)
 
         # hostname to connect ssh
         self.ssh_host = hostname
@@ -105,8 +108,7 @@ class DataTransfer(object):
             param2 remote_path: remote host path.
                 type: str
         """
-        print("Start transfering process.")
-        self._write_log(logpath=self.log_file, line="Start transfering process.")
+        self._logger.info("Start transfering process.")
         try:
             with SSHConn(hostname=self.ssh_host,
                          username=self.ssh_user,
@@ -116,40 +118,34 @@ class DataTransfer(object):
                         # if the target data is directory, its comporess to zip archive.
                         if fileope.dir_exists(target):
                             fileope.zip_data(file_path=target)
+                            self._logger.info("Archiving... {}".format(target))
                             target = "{}.zip".format(target)
 
                         # execute scp.
-                        self._logger.debug("try to scp.")
                         dtrans.scp_put(local_path=target, remote_path=remote_path)
                     except:
-                        print("Error: failed to transfer files/dir to remote host.")
-                        print("failed to transfer the target file. writing error log in {}".format(self.errlog_root))
                         line = "{} was not transfer to remote host.".format(target)
-                        self._write_log(logpath=self.errlog_file, line=line)
+                        self._logger.error(line)
                         continue
                     else:
                         line = "the data transferd from local: {0} to remote: {1}".format(target, remote_path)
-                        print(line)
-                        self._write_log(logpath=self.log_file, line=line)
+                        self._logger.info(line)
 
         except BadHostKeyException as badhoste:
             line = "SSH connection failed." \
                    "The host key given by the SSH server did not match what we were expecting"
-            self._write_log(logpath=self.errlog_file, line=line)
+            self._logger.error(line)
             raise badhoste
         except AuthenticationException as authe:
             line = "SSH authentication failed. retry with diffrent credentials."
-            self._write_log(logpath=self.errlog_file, line=line)
+            self._logger.error(line)
             raise authe
         except SSHException as sshe:
             line = "SSH connection failed. reason occured exception is unknwon."
-            self._write_log(logpath=self.errlog_file, line=line)
+            self._logger.error(line)
             raise sshe
         except error as sockete:
             line = "SSH connection was timeout."
-            self._write_log(logpath=self.errlog_file, line=line)
+            self._logger.error(line)
             raise sockete
 
-    def _write_log(self, logpath: str, line: str):
-        with open(logpath, mode='a') as file:
-            file.write(line + "\n")
