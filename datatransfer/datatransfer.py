@@ -11,6 +11,7 @@
 # -*- coding: utf-8 -*-
 from osfile import fileope
 from mylogger.logger import Logger
+from mylogger import factory
 from connection.sshconn import SSHConn
 from paramiko import BadHostKeyException, AuthenticationException, SSHException
 from socket import error
@@ -23,8 +24,6 @@ class DataTransfer(object):
                  username: str,
                  keyfile_path=None,
                  password=None,
-                 logpath=".",
-                 errlog_path=".",
                  logger=None,
                  loglevel=None):
         """constructor
@@ -54,7 +53,12 @@ class DataTransfer(object):
         if keyfile_path is None and password is None:
             raise TypeError("keyfile_path or password arg is necessary.")
         # ロガーのセットアップ.
+        # ロガーが渡されなかった場合の処理を書いていないので
+        # 書く必要がある　改修予定
         self._logger = logger
+        if logger is None:
+            slog_fac = factory.StdoutLoggerFactory()
+            self._logger = slog_fac.create()
         if self._logger is not None and loglevel in {10, 20, 30, 40, 50}:
             self._logger.set_loglevel(loglevel)
 
@@ -66,17 +70,10 @@ class DataTransfer(object):
         self.private_key = keyfile_path
         # password
         self.password = password
-        # log file root path.
-        self.log_root = logpath
-        # error log file root path.
-        self.errlog_root = errlog_path
         # YYYYmmdd
         self.ymd = datetime.now().strftime("%Y") + \
                    datetime.now().strftime("%m") + \
                    datetime.now().strftime("%d")
-        # log file path.
-        self.log_file = r"{0}/{1}_backup.log".format(self.log_root, self.ymd)
-        self.errlog_file = r"{0}/{1}_error.log".format(self.errlog_root, self.ymd)
 
     def get_transfer_files(self):
         """obtain transfer files path."""
