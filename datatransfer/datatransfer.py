@@ -15,6 +15,7 @@ from mylogger import factory
 from connection.sshconn import SSHConn
 from paramiko import BadHostKeyException, AuthenticationException, SSHException
 from socket import error
+from os.path import split, join
 
 class DataTransfer(object):
     """Transfer the data using scp."""
@@ -56,6 +57,7 @@ class DataTransfer(object):
         # ロガーが渡されなかった場合の処理を書いていないので
         # 書く必要がある　改修予定
         self._logger = logger
+        self.loglevel= loglevel
         if logger is None:
             slog_fac = factory.StdoutLoggerFactory()
             self._logger = slog_fac.create()
@@ -96,7 +98,11 @@ class DataTransfer(object):
             target_dirs.append(target_dir)
         return target_dirs
 
-    def transfer_files(self, targets: list, remote_path: str):
+    def transfer_files(self,
+                       targets: list,
+                       remote_path: str,
+                       archive_name=None,
+                       delete=False):
         """transfer local data to remoto host.
 
         Args:
@@ -104,18 +110,25 @@ class DataTransfer(object):
                 type: list
             param2 remote_path: remote host path.
                 type: str
+            param3 delete: delete an archive after transfering. defult is False.
         """
         self._logger.info("Start transfering process.")
         try:
             with SSHConn(hostname=self.ssh_host,
                          username=self.ssh_user,
-                         authkey=self.private_key) as dtrans:
+                         authkey=self.private_key,
+                         logger=self._logger,
+                         loglevel=self.loglevel) as dtrans:
                 for target in targets:
+                    head, tail = split(target)
+                    if archive_name is None:
+                        archive_name = tail
                     try:
                         # if the target data is directory, its comporess to zip archive.
                         if fileope.dir_exists(target):
-                            fileope.zip_data(file_path=target)
+                            fileope.zip_data(file_path=target, archive_name=archive_name)
                             self._logger.info("Archiving... {}".format(target))
+                            target = join(head, archive_name)
                             target = "{}.zip".format(target)
 
                         # execute scp.
@@ -127,6 +140,10 @@ class DataTransfer(object):
                     else:
                         line = "the data transferd from local: {0} to remote: {1}".format(target, remote_path)
                         self._logger.info(line)
+                        # if delete param is True, delete the archived file of localhost.
+                        if delete:
+                            self._delete_archive(target)
+                            self._logger.info("delete {}".format(target))
 
         except BadHostKeyException as badhoste:
             line = "SSH connection failed." \
@@ -145,4 +162,7 @@ class DataTransfer(object):
             line = "SSH connection was timeout."
             self._logger.error(line)
             raise sockete
+
+    def _delete_archive(self, path: str):
+        fileope.rm_filedir(path)
 
