@@ -15,8 +15,8 @@ setup(
     version='1.0',
     description='the data transfering module to use scp.',
     long_description=None,
-    author='shikano takeki',
-    author_email='shikano.takeki@nexon.co.jp',
+    author='Takeki Shikano',
+    author_email='',
     url=None,
     license='MIT',
     packages=find_packages(exclude=('docs',))
